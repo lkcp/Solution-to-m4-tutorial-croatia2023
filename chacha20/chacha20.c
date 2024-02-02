@@ -34,24 +34,24 @@ static uint32 rotate(uint32 a, int d)
   return a | t;
 }
 
-static void quarterround(uint32 *a, uint32 *b, uint32 *c, uint32 *d)
-{
-  *a = *a + *b;
-  *d = *d ^ *a;
-  *d = rotate(*d, 16);
+static void quarterround(uint32 *a, uint32 *b, uint32 *c, uint32 *d);
+/* { */
+/*   *a = *a + *b; */
+/*   *d = *d ^ *a; */
+/*   *d = rotate(*d, 16); */
 
-  *c = *c + *d;
-  *b = *b ^ *c;
-  *b = rotate(*b, 12);
+/*   *c = *c + *d; */
+/*   *b = *b ^ *c; */
+/*   *b = rotate(*b, 12); */
 
-  *a = *a + *b;
-  *d = *d ^ *a;
-  *d = rotate(*d, 8);
+/*   *a = *a + *b; */
+/*   *d = *d ^ *a; */
+/*   *d = rotate(*d, 8); */
 
-  *c = *c + *d;
-  *b = *b ^ *c;
-  *b = rotate(*b, 7);
-}
+/*   *c = *c + *d; */
+/*   *b = *b ^ *c; */
+/*   *b = rotate(*b, 7); */
+/* } */
 
 
 static int crypto_core_chacha20(

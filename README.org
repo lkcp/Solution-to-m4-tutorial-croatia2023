@@ -1,0 +1,118 @@
+
+This is the solution to tutorial in [[https://github.com/mkannwischer/m4-tutorial-croatia2023][m4-tutorial-croatia2023]] .
+
+* Install
+
+** Install qemu
+#+begin_src shell
+  brew install qemu
+#+end_src
+
+
+* Pre-tutorial instructions
+
+Please make sure that the 'helloworld' example successfully outputs
+
+#+begin_src shell
+Hello Croatia 2023!
+#+end_src
+
+when run in qemu prior to attending the tutorial.
+Installation instructions are available above.
+
+You can build and run the example using the following steps:
+
+#+begin_src shell
+cd helloworld
+make
+make run-qemu
+#+end_src
+
+* Note
+** Cortex-M4
+1. Armv7E-M architecture, released in 2010,
+2. stages (fetch, decode, execute), branching breaks pipeline (consider also branch prediction and speculative execution)
+3. r0-r15, r13 (sp, stack pointer), r14 (lr, link register), r15 (pc, program counter), r0-r12 are general purpose, and r14 can also be freely used after being saved to the stack
+4. Instr Rd, Rn(, Rm), many instructions have a variant that sets flags by appending s
+5. *barrel shifter*
+   ARM 独有的特征，是一种常见的优化方法，实现一条指令实现两条指令的效果，仅花费一个周期。
+   例如
+   #+begin_src asm
+     mov r0 , #42
+     mov r1 , #37
+     ror r1 , r1 , #1
+     orr r2 , r0 , r1
+     lsl r2 , r2 , #1
+     eor r0 , r2
+   #+end_src
+   又可以以这种优化的方式实现
+   #+begin_src asm
+  mov r0, #42
+  mov r1, #37
+  orr r2, r0, r1, ror #1
+  eor r0, r2, r2, lsl #1
+   #+end_src
+    barrel shifter 不会更新 Rm 中的值，只是会得到临时的结果用于 Instr
+6. conditional branchs
+   cmp r0, r1/immediate
+   bxx label, jump with flag corresponding to xx (\==, !=, >, >=, <, <=)
+7. conditional execution
+   if-then-else(ITE), up to 4 instructions
+8. stack
+   Used when data does not fit in registers, push {r0, r1}, pop {r0, r2} (assigned register by user)
+9. memory
+10. memory pipeline
+    - a single ldr take 2 cycles (when not stalled), N consecutive ldr take N+1 cycles
+    - str takes 1 cycle, does not pipeline
+    - ldrd/strd/ldm/stm do not pipeline, takes N+1 cycles when load N words
+    - For more details look at https://developer.arm.com/documentation/ddi0439/b/Programmers-Model/Instruction-set-summary/Load-store-timings
+11. lr keep track of 'return address'
+12. arguments of function
+    通过 r0-r3 用于存储实参，如果多于 4 个参数，则先将第五个参数存在 r0 中再将 r0 压入栈中。
+    long 和 double 类型的参数需要使用两个寄存器存储
+13. 
+* Assignments
+** IN-PREGRESS chacha20
+当运行参考实现时， qemu 上的执行时间大致在这附近波动
+
+#+begin_quote
+====== START ======
+crypto_stream_chacha20: 19300 cycles (note that these are meaningless on qemu)
+OK chacha20
+====== END ======
+#+end_quote
+
+*** Write quarterround function in assembly
+实现这部分初步体会到了 berrel shift 的妙用，对于一块操作，如
+#+begin_src c
+  *a = *a + *b;
+  *d = *d ^ *a;
+  *d = rotate(*d, 16);
+#+end_src
+我最开始的设想是，
+
+#+begin_src asm
+  mov r8, r7, lsr #16
+  mov r7, r7, lsl #16
+  eor r7, r7, r8
+#+end_src
+
+我觉得已经充分使用了，但是随后又发现其实还可以减少一个周期，变为
+
+#+begin_src asm
+  mov r8, r7, lsr #16
+  eor r7, r8, r7, lsl #16
+#+end_src
+
+总的来说，是把原本一个 5 cycles 的操作变为了 2 cycles.
+
+经过这部分优化之后，执行时间降低到 16000 附近
+#+begin_quote
+====== START ======
+crypto_stream_chacha20: 16525 cycles (note that these are meaningless on qemu)
+ERROR chacha20
+====== END ======
+#+end_quote
+
+*** Merge 4 quarterround functions into a full round
+
