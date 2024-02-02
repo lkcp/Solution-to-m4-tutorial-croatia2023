@@ -1,3 +1,4 @@
+#+options: ^: nil
 
 This is the solution to tutorial in [[https://github.com/mkannwischer/m4-tutorial-croatia2023][m4-tutorial-croatia2023]] .
 
@@ -68,9 +69,9 @@ make run-qemu
     - For more details look at https://developer.arm.com/documentation/ddi0439/b/Programmers-Model/Instruction-set-summary/Load-store-timings
 11. lr keep track of 'return address'
 12. arguments of function
-    通过 r0-r3 用于存储实参，如果多于 4 个参数，则先将第五个参数存在 r0 中再将 r0 压入栈中。
+    通过 r0-r3 用于存储实参，如果多于 4 个参数，则先将第五个参数存在 r0 中再将 r0 压入栈中。也就是在最右边的会先被压入栈。
     long 和 double 类型的参数需要使用两个寄存器存储
-13. 
+13. AAPCS (ARM Architecture Procedure Call Standard)
 * Assignments
 ** IN-PREGRESS chacha20
 当运行参考实现时， qemu 上的执行时间大致在这附近波动
@@ -107,12 +108,27 @@ OK chacha20
 总的来说，是把原本一个 5 cycles 的操作变为了 2 cycles.
 
 经过这部分优化之后，执行时间降低到 16000 附近
-#+begin_quote
+#+begin_src shell
 ====== START ======
-crypto_stream_chacha20: 16525 cycles (note that these are meaningless on qemu)
-ERROR chacha20
+crypto_stream_chacha20: 17375 cycles (note that these are meaningless on qemu)
+OK chacha20
 ====== END ======
-#+end_quote
+#+end_src
 
 *** Merge 4 quarterround functions into a full round
+初步的想法就是将 16 个32比特的状态作为参数传入，然后根据实参来决定执行前4个后后嗣个 quarterround。只要指定好每次传入的实参，那其实就是同样的操作执行4次。不过多余的参数已经被压入栈了，所以每操作完四个参数，再从栈中 pop 出随后要处理的4个参数即可。
 
+但是在执行时出现了 HardFault_Handler, 检查了一下 mps2.ld, 栈大小是 0x400 也就是 1kB, 所以不是栈的问题。
+
+应该是 pop 的问题。是这样的，调用函数时先把参数从又开始压至栈中，再执行 push {r4-r11, lr}, 所以参数的地址实际上在 sp + 9*4 的位置，我通过 gdb 进行 debug 发现的确如此。经过调整后结果正确，不再有问题。
+
+#+begin_src shell
+  ====== START ======
+  crypto_stream_chacha20: 16800 cycles (note that these are meaningless on qemu)
+  OK chacha20
+  ====== END ======
+#+end_src
+
+*** TODO Later: Implement loop over 20 rounds in assembly
+** Dilithium
+** Kyber
