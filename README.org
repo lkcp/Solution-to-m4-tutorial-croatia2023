@@ -129,6 +129,7 @@ OK chacha20
   ====== END ======
 #+end_src
 
-*** TODO Later: Implement loop over 20 rounds in assembly
+*** DONE Later: Implement loop over 20 rounds in assembly
+也就是把 20 轮循环打包成单个函数，再加一个 flag 和循环跳转。不过这次不再能手动指定寄存器的位置，所以需要一些额外的寄存器来存储地址。因为每一行的第一个值都是 x0-x3, 所以就按照 x0-x15 的顺序传参，这样一来， x0-x3 在一开始存在寄存器中，每次只需要到栈中取一次地址，然后存储在 r10, r11, r14 三个寄存器中。遵循前面的习惯，以 r4-r7 存储四个传入的值，r8 存储计算过程中的中间值。为了使用循环，还需要使用一个寄存器 r9 存储计数器。这一步也比较简单。不过在执行时间上未体现出明显的优势。按理说这里少了许多的 push 和 pop, 应该能节约很多时间。
 ** Dilithium
 ** Kyber

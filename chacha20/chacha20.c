@@ -60,6 +60,13 @@ static void quarterround16(
 			     uint32 *x3, uint32 *x7, uint32 *x11, uint32 *x15);
 
 
+static void iter20(
+		   uint32 *x0, uint32 *x1, uint32 *x2, uint32 *x3,
+		   uint32 *x4, uint32 *x5, uint32 *x6, uint32 *x7,
+		   uint32 *x8, uint32 *x9, uint32 *x10, uint32 *x11,
+		   uint32 *x12, uint32 *x13, uint32 *x14, uint32 *x15
+		   );
+
 static int crypto_core_chacha20(
         unsigned char *out,
   const unsigned char *in,
@@ -88,15 +95,15 @@ static int crypto_core_chacha20(
   j14 = x14 = load_littleendian(in+  0);
   j15 = x15 = load_littleendian(in+  4);
 
-  for (i = ROUNDS;i > 0;i -= 2) {
-    quarterround(&x0, &x4, &x8,&x12);
-    quarterround(&x1, &x5, &x9,&x13);
-    quarterround(&x2, &x6,&x10,&x14);
-    quarterround(&x3, &x7,&x11,&x15);
-    quarterround(&x0, &x5,&x10,&x15);
-    quarterround(&x1, &x6,&x11,&x12);
-    quarterround(&x2, &x7, &x8,&x13);
-    quarterround(&x3, &x4, &x9,&x14);
+  /* for (i = ROUNDS;i > 0;i -= 2) { */
+    /* quarterround(&x0, &x4, &x8,&x12); */
+    /* quarterround(&x1, &x5, &x9,&x13); */
+    /* quarterround(&x2, &x6,&x10,&x14); */
+    /* quarterround(&x3, &x7,&x11,&x15); */
+    /* quarterround(&x0, &x5,&x10,&x15); */
+    /* quarterround(&x1, &x6,&x11,&x12); */
+    /* quarterround(&x2, &x7, &x8,&x13); */
+    /* quarterround(&x3, &x4, &x9,&x14); */
     /* quarterround16( */
     /* 		   &x0, &x4, &x8, &x12, */
     /* 		     &x1, &x5, &x9, &x13, */
@@ -110,7 +117,13 @@ static int crypto_core_chacha20(
     /* 		     &x2, &x7, &x8, &x13, */
     /* 		     &x3, &x4, &x9, &x14 */
     /* 		   ); */
-  }
+  /* } */
+  iter20(
+	   &x0, &x1, &x2, &x3,
+	   &x4, &x5, &x6, &x7,
+	   &x8, &x9, &x10, &x11,
+	   &x12, &x13, &x14, &x15
+  );
 
   x0 += j0;
   x1 += j1;
