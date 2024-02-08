@@ -73,7 +73,7 @@ make run-qemu
     long 和 double 类型的参数需要使用两个寄存器存储
 13. AAPCS (ARM Architecture Procedure Call Standard)
 * Assignments
-** IN-PREGRESS chacha20
+** DONE chacha20
 当运行参考实现时， qemu 上的执行时间大致在这附近波动
 
 #+begin_quote
@@ -129,7 +129,36 @@ OK chacha20
   ====== END ======
 #+end_src
 
-*** DONE Later: Implement loop over 20 rounds in assembly
+*** DONE Implement loop over 20 rounds in assembly
 也就是把 20 轮循环打包成单个函数，再加一个 flag 和循环跳转。不过这次不再能手动指定寄存器的位置，所以需要一些额外的寄存器来存储地址。因为每一行的第一个值都是 x0-x3, 所以就按照 x0-x15 的顺序传参，这样一来， x0-x3 在一开始存在寄存器中，每次只需要到栈中取一次地址，然后存储在 r10, r11, r14 三个寄存器中。遵循前面的习惯，以 r4-r7 存储四个传入的值，r8 存储计算过程中的中间值。为了使用循环，还需要使用一个寄存器 r9 存储计数器。这一步也比较简单。不过在执行时间上未体现出明显的优势。按理说这里少了许多的 push 和 pop, 应该能节约很多时间。
 ** Dilithium
+*** mulmod
+这里是 32 位的蒙哥马利模乘，输入是两个参数，参数1是普通域上的，参数2是蒙哥马利域上的，都是 32 位的有符号数。根据 Dilithium 的参考实现，其使用的蒙哥马利模约减如下：
+
+#+begin_src c
+  int32_t PQCLEAN_DILITHIUM2_CLEAN_montgomery_reduce(int64_t a) {
+      int32_t t;
+
+      t = (int32_t)((uint64_t)a * (uint64_t)QINV);
+      t = (a - (int64_t)t * Q) >> 32;
+      return t;
+  }
+#+end_src
+
+即首先将模乘的两项相乘，得到一个 64 位的中间结果，随后乘以 qinv 并取低 32 位得到 t。最后计算 a - t*q 的高 32 位作为结果。蒙哥马利方面， $R = 2^{32} \mod q = -4186625$, $q = 3329$, $qinv = 3329^{-1} \mod R =58728449$。其他的就没什么需要注意的，直接上就 ok.
+
+其复杂的点在于需要使用两个寄存器来保存中间状态。比如 a * qinv 这里，其实只需要低 32 位，而结果中的低32位一定是由两个乘数的低32位计算得来的，所以使用普通的 mul 指令即可，将结果保存在一个普通的 32 位寄存器中也就得到了低32位的结果。随后的 t = a-t*q 则可以通过一条指令 smlal 实现，不过这里只只是加法不支持乘法，所以我们实际上计算的 t 是 a * (-qinv), 这样一来这里的加法就变成了乘法，最后取高 32 位即位移位的操作。
+
+还有两个汇编的小 tips:
+1. 就是返回的值默认放在寄存器 r0 中，之前 chacha20 的部分没有涉及到返回值
+2. 当把一个 32 比特的立即数放入寄存器中时，需要先 movw lowpart, 再  movt highpart
+
+*** butterfly
+butterfly 实现单个蝶型运算，输入的参数第一个是一个数组，也就是一个指针，包含两个 32 位的有符号数，第二个是本次蝶型运算使用的 twiddle factor, 同样是一个 32 比特的有符号数。计算就是普通的蝶型运算，首先使用一次模乘，随后是一个加法和一个减法。使用 bl 跳转到有返回值的函数 modmul, 需要注意的是， a[0] 作为随后会用到的值，不要存放到 r0-r3 中，会被覆盖掉。然后 modmul 的参数应该被按照 ABI 放置在 r0 和 r1 中。返回值，即 a1 * tw 则会存放在 r0 中留待 butterfly 使用。
+
+*** nttlayer1
+执行第一层的 ntt 操作，使用一个固定的蝶型因子。复杂的地方在于需要使用一个 for 循环。输入是一个指针 a, 该地址之后有 256 个有符号的 32 位整形。每次循环是 a + i 和 a + 128 + i 两个数的蝶型运算。
+
+*** ntt
+
 ** Kyber
