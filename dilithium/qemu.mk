@@ -53,3 +53,5 @@ QEMUFLAGS = -M mps2-an386 -nographic -semihosting
 run-qemu: bin/qemu-test.bin
 	$(QEMU) $(QEMUFLAGS) -kernel bin/qemu-test.bin
 
+dbg-qemu: elf/qemu-test.elf
+	$(QEMU) $(QEMUFLAGS) -kernel elf/qemu-test.elf -S -gdb tcp::1234
